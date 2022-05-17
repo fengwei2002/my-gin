@@ -14,23 +14,32 @@ type Context struct {
 	// context 是一个百宝箱 对外提供一个接口，功能在 context 上进行扩展
 	// 源参数
 	Writer http.ResponseWriter
-	Req *http.Request
+	Req    *http.Request
 	// 请求的信息
-	Path string
+	Path   string
 	Method string
+	Params map[string]string // 将路由解析后的参数存储到 Params 中
 	// 返回的信息
 	StatusCode int
 }
 
 // newContext 是 context 的构造函数，返回一个 context 对象
-func newContext(w http.ResponseWriter, req *http.Request) *Context{
+func newContext(w http.ResponseWriter, req *http.Request) *Context {
 	return &Context{
 		Writer: w,
-		Req: req,
-		Path: req.URL.Path,
+		Req:    req,
+		Path:   req.URL.Path,
 		Method: req.Method,
 	}
 }
+
+
+// Param 返回 map[key] 对应的 value
+func (c *Context) Param(key string) string {
+	value, _ := c.Params[key]
+	return value
+}
+
 
 // PostForm 接收一个 string 返回 http.Request.FormValue(string) 的结果
 func (c *Context) PostForm(key string) string {
@@ -56,10 +65,9 @@ func (c *Context) SetHeader(key string, value string) {
 
 /*使用上面提供的接口实现更加集中的 API 接口 */
 
-
 // 使用 String 传入一部分信息，然后将 code 的信息记录在 c 中
 // 并且将 values... 中的内容，转换为 byte 数组，写入到 c.Writer 中
-func (c *Context) String(code int, format string, values...any) {
+func (c *Context) String(code int, format string, values ...any) {
 	c.SetHeader("Content-Type", "text/plain")
 	c.Status(code)
 	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
@@ -89,4 +97,3 @@ func (c *Context) HTML(code int, html string) {
 	c.Status(code)
 	c.Writer.Write([]byte(html))
 }
-

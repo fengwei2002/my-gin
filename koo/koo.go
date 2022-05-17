@@ -1,6 +1,7 @@
 package koo
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -24,6 +25,7 @@ func New() *Engine {
 // addRoute 将一个路由的信息存储到 engine 的 router 中
 // 第一个参数是使用的方法，第二个参数是具体的路由，第三个参数是路由处理函数
 func (engine *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
+	log.Printf("Route %4s - %s", method, pattern)
 	engine.router.addRoute(method, pattern, handler)
 }
 
