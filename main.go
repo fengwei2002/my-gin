@@ -2,11 +2,14 @@ package main
 
 import (
 	"koo"
+	"log"
 	"net/http"
+	"time"
 )
 
 func main() {
 	r := koo.New()
+	r.Use(koo.Logger()) // global middleware
 	r.GET("/index", func(c *koo.Context) {
 		c.HTML(http.StatusOK, "<h1>Hello</h1>")
 	})
@@ -23,6 +26,7 @@ func main() {
 	}
 
 	v2 := r.Group("/v2")
+	v2.Use(onlyForV2()) // use v2 group middleware
 	{
 		v2.GET("/hello/:name", func(c *koo.Context) {
 			// expect /hello/fengwei
@@ -37,4 +41,14 @@ func main() {
 	}
 
 	r.Run("localhost:8080")
+}
+
+
+func onlyForV2() koo.HandlerFunc {
+	return func(c *koo.Context) {
+		// start time
+		t := time.Now()
+		// end
+		log.Printf("> [%d] %s in %v for group v2", c.StatusCode, c.Req.RequestURI, time.Since(t))
+	}
 }

@@ -3,10 +3,11 @@ package koo
 import (
 	"log"
 	"net/http"
+	"strings"
 )
 
 // HandlerFunc 是路由处理函数类型的一个缩写
-//type HandlerFunc func(http.ResponseWriter, *http.Request)
+// type HandlerFunc func(http.ResponseWriter, *http.Request)
 type HandlerFunc func(c *Context) // 修改为使用上下文
 
 // Engine 实现了 ServerHTTP 方法，可以作为 ListenAndServer 的第二个参数使用
@@ -21,8 +22,8 @@ type Engine struct {
 type RouterGroup struct {
 	prefix      string
 	middlewares []HandlerFunc // 支持中间件
-	parent      *RouterGroup
-	engine      *Engine // 所有的 groups 共享同一个 engine 实例
+	parent      *RouterGroup  // support nesting
+	engine      *Engine       // 所有的 groups 共享同一个 engine 实例
 }
 
 // New 是 koo.Engine 的构造函数
@@ -77,15 +78,37 @@ func (group *RouterGroup) POST(pattern string, handler HandlerFunc) {
 	group.addRoute("POST", pattern, handler)
 }
 
+// Use 调用 Use，将传入的 HandlerFunc 全部添加到这个 group 的信息中
+func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
+	group.middlewares = append(group.middlewares, middlewares...)
+}
+
 // Run 使用 run 接口，将传入的 addr 使用  http ListenAndServe 运行，第二个参数的 engine 已经实现 ServeHTTP 方法
 // 所有的路由请求交给 engine 处理
 func (engine *Engine) Run(addr string) (err error) {
 	return http.ListenAndServe(addr, engine)
 }
 
+//
+//func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+//	c := newContext(w, req)
+//	// 创建一个上下文
+//	engine.router.handle(c)
+//	// 使用 router.handle 处理这个上下文
+//}
+
+// ServeHTTP 当我们接收到一个具体请求时，要判断该请求适用于哪些中间件，
+// 在这里简单通过 URL 的前缀来判断。
+// 得到中间件列表后，赋值给 c.handlers。
 func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	var middlewares []HandlerFunc
+	for _, group := range engine.groups {
+		if strings.HasPrefix(req.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
+
 	c := newContext(w, req)
-	// 创建一个上下文
-	engine.router.handle(c)
-	// 使用 router.handle 处理这个上下文
+	c.handlers = middlewares
+	engine.router.handle(c) // 使用 router.handle 处理这个上下文
 }

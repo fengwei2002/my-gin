@@ -21,6 +21,9 @@ type Context struct {
 	Params map[string]string // 将路由解析后的参数存储到 Params 中
 	// 返回的信息
 	StatusCode int
+	// 自己添加的中间件
+	handlers []HandlerFunc // 每个 Context 一组 handlerFunc
+	index    int           // 代表当前执行到了哪一个 handlerFunc
 }
 
 // newContext 是 context 的构造函数，返回一个 context 对象
@@ -30,16 +33,30 @@ func newContext(w http.ResponseWriter, req *http.Request) *Context {
 		Req:    req,
 		Path:   req.URL.Path,
 		Method: req.Method,
+		index:  -1,
 	}
 }
 
+// Next 方法，对于一个 context，处理从 index 开始之后所有的 handlerFunc
+func (c *Context) Next() {
+	c.index++
+	s := len(c.handlers)
+	for ; c.index < s; c.index++ {
+		c.handlers[c.index](c)
+	}
+}
+
+// Fail 方法将 c 的 index 跳转到最后一个元素的下一个，然后，将错误以 JSON 格式返回
+func (c *Context) Fail(code int, err string) {
+	c.index = len(c.handlers)
+	c.JSON(code, H{"message": err})
+}
 
 // Param 返回 map[key] 对应的 value
 func (c *Context) Param(key string) string {
 	value, _ := c.Params[key]
 	return value
 }
-
 
 // PostForm 接收一个 string 返回 http.Request.FormValue(string) 的结果
 func (c *Context) PostForm(key string) string {
