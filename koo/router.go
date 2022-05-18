@@ -97,6 +97,7 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 	return nil, nil
 }
 
+// getRoutes 方法，返回 method 对应的所有的 node
 func (r *router) getRoutes(method string) []*node {
 	root, ok := r.roots[method]
 	if !ok {
@@ -107,7 +108,7 @@ func (r *router) getRoutes(method string) []*node {
 	return nodes
 }
 
-
+// handle 传入上下文，使用 r 内存储的 handlers 进行处理
 func (r *router) handle(c *Context) {
 	n, params := r.getRoute(c.Method, c.Path)
 	if n != nil {

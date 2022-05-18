@@ -47,6 +47,7 @@ func (c *Context) PostForm(key string) string {
 }
 
 // Query 接收一个 string 返回 http.Request.URL.Query().Get(string) 的结果
+// ?name=fengwei Query(name) 返回 fengwei
 func (c *Context) Query(key string) string {
 	return c.Req.URL.Query().Get(key)
 }
