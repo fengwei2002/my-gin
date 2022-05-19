@@ -52,6 +52,7 @@ func (c *Context) Next() {
 // Fail 方法将 c 的 index 跳转到最后一个元素的下一个，然后，将错误以 JSON 格式返回
 func (c *Context) Fail(code int, err string) {
 	c.index = len(c.handlers)
+	fmt.Println("------------------------------------------------------")
 	c.JSON(code, H{"message": err})
 }
 

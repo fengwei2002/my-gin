@@ -74,16 +74,6 @@ func (r *router) getRoute(method string, path string) (*node, map[string]string)
 		for index, part := range parts {
 			if part[0] == ':' {
 				params[part[1:]] = searchParts[index]
-			}
-			if part[0] == '*' && len(part) > 1 {
-				params[part[1:]] = strings.Join(searchParts[index:], "/")
-				break
-			}
-		}
-		parts = parsePattern(n.pattern)
-		for index, part := range parts {
-			if part[0] == ':' {
-				params[part[1:]] = searchParts[index]
 				// /:lang, /go -> {lang: go}
 			}
 			if part[0] == '*' && len(part) > 1 {
@@ -115,7 +105,7 @@ func (r *router) handle(c *Context) {
 	if n != nil {
 		key := c.Method + "-" +  n.pattern
 		c.Params = params
-		r.handlers[key](c)
+		c.handlers = append(c.handlers, r.handlers[key]) // 添加到 c.Handlers 后面
 	} else {
 		c.handlers = append(c.handlers, func(c *Context) {
 			c.String(http.StatusNotFound, "404 NOT FOUND: %s\n", c.Path)
