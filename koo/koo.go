@@ -1,8 +1,10 @@
 package koo
 
 import (
+	"html/template"
 	"log"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -16,6 +18,10 @@ type Engine struct {
 	*RouterGroup
 	router *router
 	groups []*RouterGroup // store all groups
+
+	// templates
+	htmlTemplates *template.Template // for html render 将所有的模板加载进内存
+	funcMap       template.FuncMap   // for html render  所有的自定义模板渲染函数
 }
 
 // RouterGroup 支持对分组的路由应用一些规则
@@ -24,6 +30,16 @@ type RouterGroup struct {
 	middlewares []HandlerFunc // 支持中间件
 	parent      *RouterGroup  // support nesting
 	engine      *Engine       // 所有的 groups 共享同一个 engine 实例
+}
+
+// SetFuncMap 为用户提供了设置自定义渲染函数funcMap
+func (engine *Engine) SetFuncMap(funcMap template.FuncMap) {
+	engine.funcMap = funcMap
+}
+
+// LoadHTMLGlob 为用户提供了加载模板的方法 
+func (engine *Engine) LoadHTMLGlob(pattern string) {
+	engine.htmlTemplates = template.Must(template.New("").Funcs(engine.funcMap).ParseGlob(pattern))
 }
 
 // New 是 koo.Engine 的构造函数
@@ -83,6 +99,33 @@ func (group *RouterGroup) Use(middlewares ...HandlerFunc) {
 	group.middlewares = append(group.middlewares, middlewares...)
 }
 
+// create static handler
+func (group *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(group.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+
+	return func(c *Context) {
+		file := c.Param("filepath")
+		// file 是 filePath 具体对应的 value
+		// 解析请求的地址，映射到服务器上文件的真实地址
+		// 交给 http.FileServer 处理就好了
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		fileServer.ServeHTTP(c.Writer, c.Req)
+	}
+}
+
+// Static serve static files 用户可以将磁盘上的某个文件夹 root 映射到路由 relativePath。
+func (group *RouterGroup) Static(relativePath string, root string) {
+	handler := group.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	// Register GET handlers
+	group.GET(urlPattern, handler)
+}
+
 // Run 使用 run 接口，将传入的 addr 使用  http ListenAndServe 运行，第二个参数的 engine 已经实现 ServeHTTP 方法
 // 所有的路由请求交给 engine 处理
 func (engine *Engine) Run(addr string) (err error) {
@@ -110,5 +153,8 @@ func (engine *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	c := newContext(w, req)
 	c.handlers = middlewares
+	c.engine = engine 
+	// 在 Context 中添加了成员变量 engine *Engine，这样就能够通过 Context 访问 Engine 中的 HTML 模板。
+	// 实例化 Context 时，还需要给 c.engine 赋值。
 	engine.router.handle(c) // 使用 router.handle 处理这个上下文
 }

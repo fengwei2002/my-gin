@@ -24,6 +24,9 @@ type Context struct {
 	// 自己添加的中间件
 	handlers []HandlerFunc // 每个 Context 一组 handlerFunc
 	index    int           // 代表当前执行到了哪一个 handlerFunc
+
+	// template
+	engine *Engine // Engine Pointer
 }
 
 // newContext 是 context 的构造函数，返回一个 context 对象
@@ -109,9 +112,11 @@ func (c *Context) Data(code int, data []byte) {
 	c.Writer.Write(data)
 }
 
-// HTML 接口，将 html 文本对应的信息写到 c.Writer 中，然后将 html(string) 转为 []byte 也装入到 c.Writer 中
-func (c *Context) HTML(code int, html string) {
+// HTML 接口，根据模板文件名选择模板进行渲染。
+func (c *Context) HTML(code int, name string, data interface{}) {
 	c.SetHeader("Content-Type", "text/html")
 	c.Status(code)
-	c.Writer.Write([]byte(html))
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(500, err.Error())
+	}
 }
